@@ -1,0 +1,6 @@
+sqlalchemy
+pydantic_settings
+selenium
+asyncpg
+python-dotenv
+telethon

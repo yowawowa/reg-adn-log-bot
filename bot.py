@@ -14,7 +14,7 @@ from telethon.tl.types import (
 from app.config import settings
 from app.models import create_tables
 from form_filler import cappa_register
-from app.core import get_user_by_tg_id, save_user_to_db
+from app.core import get_user_by_tg_id_and_login, save_user_to_db
 
 
 bot = TelegramClient(
@@ -33,6 +33,7 @@ user_data = {
 
 @bot.on(events.NewMessage(pattern="/start"))
 async def start(event):
+    await create_tables()
     if isinstance(event.peer_id, PeerUser):
         keyboard_buttons = ReplyInlineMarkup(
             [
@@ -60,7 +61,7 @@ async def registration(event):
 async def user_login(event):
     user_id = event.query.to_dict()["user_id"]
     print(user_id)
-    await get_user_by_tg_id(user_id)
+    await get_user_by_tg_id_and_login(user_id)
 
 
 @bot.on(events.NewMessage(pattern=r"^([^,]+),([^,]+),([^,]+),([^,]+),([^,]+)$"))

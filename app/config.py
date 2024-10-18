@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     api_id: int
     api_hash: str
     bot_token: str
+    FERNET_KEY: str
 
     @property
     def DB_URL_asyncpg(self):

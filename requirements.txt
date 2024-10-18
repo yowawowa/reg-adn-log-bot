@@ -4,3 +4,4 @@ selenium
 asyncpg
 python-dotenv
 telethon
+cryptography 

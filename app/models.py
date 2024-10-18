@@ -26,8 +26,7 @@ class User(Base):
     tg_id: Mapped[int] = mapped_column(Integer)
     username: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
     email: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
-    password: Mapped[str] = mapped_column(
-        String(255),
+    password: Mapped[bytes] = mapped_column(
         nullable=False,
     )
     registration_time: Mapped[datetime] = mapped_column(

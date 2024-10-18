@@ -1,115 +1,106 @@
 import asyncio
-from telethon.sync import TelegramClient, events, Button
+from telethon.sync import TelegramClient, events
+from telethon.tl.functions.users import GetFullUserRequest
 from telethon.tl.types import (
     PeerChannel,
     PeerUser,
     ReplyKeyboardMarkup,
     ReplyInlineMarkup,
+    KeyboardButtonRow,
+    KeyboardButton,
+    KeyboardButtonUrl,
+    KeyboardButtonCallback,
 )
 from app.config import settings
+from app.models import create_tables
+from form_filler import cappa_register
+from app.core import get_user_by_tg_id, save_user_to_db
 
 
 bot = TelegramClient(
     "bot", settings.api_id, settings.api_hash, sequential_updates=True
 ).start(bot_token=settings.bot_token)
 
-register_board = [
-    [Button.inline("username", b"username"), Button.inline("email", b"mail")],
-    [Button.inline("back", b"back")],
-]
+user_data = {
+    "username": None,
+    "email": None,
+    "password": None,
+    "tg_id": None,
+    "first_name": None,
+    "last_name": None,
+}
 
 
-# says hi
-@bot.on(events.NewMessage)
-async def my_event_handler(event):
-    if "hello" in event.raw_text:
-        await event.reply("hi!")
-
-
-# start conversation
 @bot.on(events.NewMessage(pattern="/start"))
 async def start(event):
-    keyboard = [
-        [Button.inline("register", b"register"), Button.inline("login", b"login")],
-    ]
-
-    await bot.send_message(
-        event.chat_id,
-        "Hello! I'm your friendly bot. "
-        "You can use me to fill in the forms on the CAPPA website.",
-        buttons=keyboard,
-    )
-
-
-user_data = {"username": None, "email": None}
-
-
-# @bot.on(events.ChatAction)
-# async def my_event_handler(event): ...
-
-
-@bot.on(events.CallbackQuery(data=b"register"))
-async def registration_callback(event):
-    await bot.send_message(
-        event.chat_id,
-        "credentials from reg",
-        buttons=register_board,
-    )
-
-
-@bot.on(events.CallbackQuery(data=b"username"))
-async def username_callback(event):
-
-    await bot.send_message(event.chat_id, "enter username")
-
-    @bot.on(events.NewMessage)
-    async def save_username(event):
-        user_data["username"] = event.raw_text
-
+    if isinstance(event.peer_id, PeerUser):
+        keyboard_buttons = ReplyInlineMarkup(
+            [
+                KeyboardButtonRow(
+                    [
+                        KeyboardButtonCallback(text="Registration", data=b"reg"),
+                        KeyboardButtonCallback(text="Login", data=b"login"),
+                    ],
+                )
+            ]
+        )
         await bot.send_message(
-            event.chat_id, "credentials from user", buttons=register_board
+            entity=event.peer_id, message="choose one", buttons=keyboard_buttons
         )
 
 
-@bot.on(events.CallbackQuery(data=b"mail"))
-async def email_callback(event):
+@bot.on(events.CallbackQuery(data=b"reg"))
+async def registration(event):
+    await event.respond(
+        "enter username, firs name, lastname, email and password separated by commas"
+    )
 
-    await bot.send_message(event.chat_id, "enter email")
 
-    @bot.on(events.NewMessage)
-    async def save_email(event):
-        user_data["email"] = event.raw_text
+@bot.on(events.CallbackQuery(data=b"login"))
+async def user_login(event):
+    user_id = event.query.to_dict()["user_id"]
+    print(user_id)
+    await get_user_by_tg_id(user_id)
 
+
+@bot.on(events.NewMessage(pattern=r"^([^,]+),([^,]+),([^,]+),([^,]+),([^,]+)$"))
+async def save_data(event):
+    if isinstance(event.peer_id, PeerUser):
+        text_data = event.raw_text.split(",")
+        user_data["username"] = text_data[0]
+        user_data["first_name"] = text_data[1]
+        user_data["last_name"] = text_data[2]
+        user_data["email"] = text_data[3]
+        user_data["password"] = text_data[4]
+
+        user_data["tg_id"] = event.peer_id.to_dict()["user_id"]
+
+        keyboard = ReplyInlineMarkup(
+            [
+                KeyboardButtonRow(
+                    [
+                        KeyboardButtonCallback(text="Submit", data=b"submit"),
+                        KeyboardButtonCallback(text="Retry", data=b"Retry"),
+                    ],
+                )
+            ]
+        )
         await bot.send_message(
-            event.chat_id, "credentials from email", buttons=register_board
+            entity=event.peer_id,
+            message=f"your username: {user_data['username']}, real name: {user_data['first_name']} {user_data['last_name']}, email: {user_data['email']}, aaaand password i'll keep in secret. press sumbit if u satisfied",
+            buttons=keyboard,
         )
 
 
-# @bot.on(events.CallbackQuery)
-# async def email_callback(event):
-#     if event.data == b"mail":
-#         await bot.send_message(event.chat_id, "enter email")
-
-
-# @bot.on(events.CallbackQuery)
-# async def email_callback(event):
-#     if event.data == b"email":
-#         await event.respond("enter email")
-
-#         @bot.on(events.NewMessage)
-#         async def save_email(event):
-#             user_data["email"] = event.raw_text
-#             await event.respond("credentials from email", buttons=main_board)
-
-
-@bot.on(events.CallbackQuery)
-async def back_callback(event):
-    if event.data == b"back":
-        # await start(event)
-        ...
+@bot.on(events.CallbackQuery(data=b"submit"))
+async def save_to_db_and_register(event):
+    await save_user_to_db(user_data)
+    await cappa_register(user_data)
+    await bot.send_message("all done")
 
 
 async def main():
+    await create_tables()
     await bot.disconnect()
 
 

@@ -8,7 +8,7 @@ from sqlalchemy import (
     func,
 )
 from sqlalchemy.orm import relationship, mapped_column, Mapped, DeclarativeBase
-from database import async_engine
+from app.database import async_engine
 
 
 class Base(DeclarativeBase):
@@ -23,7 +23,9 @@ async def create_tables():
 class User(Base):
     __tablename__ = "users"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    tg_id: Mapped[int] = mapped_column(Integer)
     username: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
+    email: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
     password: Mapped[str] = mapped_column(
         String(255),
         nullable=False,
@@ -43,6 +45,3 @@ class Session(Base):
         DateTime, server_default=func.now()
     )
     user: Mapped[User] = relationship("User", backref="sessions")
-
-
-asyncio.run(create_tables())
